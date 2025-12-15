@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aplikasi Edukasi Daur Air</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome untuk Ikon Navigasi -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Mengatur font utama dan menghilangkan scrollbar pada body */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f3f4f6; 
+            touch-action: none;
+        }
+        /* Custom Scrollbar untuk Materi */
+        .content-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .content-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .content-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .content-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        
+        /* Efek Glassmorphism untuk overlay info */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .title-font {
+            font-family: 'Fredoka', sans-serif;
+        }
+        /* Efek Shadow untuk tombol utama di halaman Home */
+        .main-button {
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .main-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-grow relative w-full overflow-hidden">
+
+        <!-- LAYER 0: BERANDA (HOME SCREEN) - Tiga tombol dijejerkan di sini -->
+        <section id="view-home" class="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-blue-600 p-8">
+            <div class="text-center text-white mb-12">
+                <div class="text-7xl mb-4 title-font">💧</div>
+                <h1 class="text-4xl md:text-6xl font-extrabold title-font mb-3">Siklus Air Bumi</h1>
+                <p class="text-lg opacity-80">Pilih mode belajar yang kamu inginkan.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+                <!-- Tombol 1: Simulasi -->
+                <button onclick="switchTab('simulation')" class="main-button bg-green-500 text-white p-8 rounded-2xl flex flex-col items-center hover:bg-green-600">
+                    <i class="fa-solid fa-earth-americas text-4xl mb-3"></i>
+                    <span class="text-xl font-bold">Simulasi Interaktif</span>
+                    <span class="text-sm opacity-90 mt-1">Lihat proses air secara visual.</span>
+                </button>
+
+                <!-- Tombol 2: Materi -->
+                <button onclick="switchTab('materi')" class="main-button bg-orange-500 text-white p-8 rounded-2xl flex flex-col items-center hover:bg-orange-600">
+                    <i class="fa-solid fa-book-open text-4xl mb-3"></i>
+                    <span class="text-xl font-bold">Rangkuman Materi</span>
+                    <span class="text-sm opacity-90 mt-1">Baca penjelasan setiap tahap.</span>
+                </button>
+
+                <!-- Tombol 3: Kuis (Akses ke layer kuis terpisah) -->
+                <button onclick="switchTab('quiz')" class="main-button bg-indigo-500 text-white p-8 rounded-2xl flex flex-col items-center hover:bg-indigo-600">
+                    <i class="fa-solid fa-graduation-cap text-4xl mb-3"></i>
+                    <span class="text-xl font-bold">Uji Pengetahuan (Kuis)</span>
+                    <span class="text-sm opacity-90 mt-1">Tes pemahamanmu!</span>
+                </button>
+            </div>
+        </section>
+        
+        <!-- LAYER 1: SIMULASI CANVAS -->
+        <section id="view-simulation" class="absolute inset-0 w-full h-full hidden">
+            <canvas id="waterCycleCanvas" class="block cursor-pointer"></canvas>
+            
+            <!-- Tombol Kembali ke Beranda (Top Left) -->
+            <button onclick="switchTab('home')" class="absolute top-4 left-4 z-50 p-3 bg-white/90 rounded-full shadow-lg text-blue-600 hover:bg-white transition">
+                <i class="fa-solid fa-home"></i> <span class="hidden sm:inline font-semibold ml-1">Beranda</span>
+            </button>
+
+            <!-- Status Terkini Panel (Top Right) -->
+            <div class="absolute top-4 right-4 pointer-events-none flex flex-col items-end space-y-3 z-10">
+                <div class="glass-panel rounded-xl p-3 shadow-md pointer-events-auto max-w-[200px] md:max-w-xs">
+                    <h1 class="text-lg font-bold text-blue-800 title-font">Status Terkini</h1>
+                    <div class="text-xs text-gray-600 font-semibold mt-1" id="day-night-status">Waktu: Pagi</div>
+                    <p class="mt-2 text-[10px] text-blue-600 italic">👆 Klik Laut (uap) atau Awan (hujan)!</p>
+                </div>
+            </div>
+            
+            <!-- Kuis CTA (Bottom Left - Akses ke layer kuis terpisah) -->
+            <div class="absolute bottom-6 left-4 z-10 pointer-events-auto">
+                <button onclick="switchTab('quiz')" class="main-button bg-indigo-500 text-white p-3 md:p-4 rounded-xl shadow-lg hover:bg-indigo-600 font-bold text-sm md:text-base flex items-center gap-2 transition transform hover:scale-[1.05]">
+                    <i class="fa-solid fa-graduation-cap"></i> UJI PEMAHAMAN (KUIS)
+                </button>
+            </div>
+
+            <!-- Kontrol Zoom (Bottom Right) -->
+            <div class="absolute bottom-6 right-4 flex flex-col space-y-2 z-10 pointer-events-auto hidden">
+                <button id="zoomInBtn" class="w-10 h-10 bg-white/90 rounded-full text-blue-600 font-bold shadow-lg hover:bg-white flex items-center justify-center text-xl">+</button>
+                <button id="zoomOutBtn" class="w-10 h-10 bg-white/90 rounded-full text-red-500 font-bold shadow-lg hover:bg-white flex items-center justify-center text-xl">-</button>
+            </div>
+        </section>
+
+        <!-- LAYER 2: MATERI (RANGKUMAN) -->
+        <section id="view-materi" class="absolute inset-0 w-full h-full bg-white hidden overflow-y-auto content-scroll pb-20">
+            <!-- Tombol Kembali ke Beranda (Sticky agar tetap terlihat saat scroll) -->
+            <button onclick="switchTab('home')" class="sticky top-4 left-4 z-50 p-3 bg-white/90 rounded-full shadow-lg text-blue-600 hover:bg-white transition ml-4 mt-4">
+                <i class="fa-solid fa-home"></i> <span class="hidden sm:inline font-semibold ml-1">Beranda</span>
+            </button>
+
+            <div class="max-w-3xl mx-auto p-6 md:p-10">
+                <header class="mb-8 text-center">
+                    <h2 class="text-3xl md:text-4xl font-bold text-blue-600 title-font mb-2">Rangkuman Materi</h2>
+                    <p class="text-gray-500">Memahami bagaimana air bergerak di bumi.</p>
+                </header>
+
+                <!-- Kartu Materi 1: Evaporasi -->
+                <div class="bg-orange-50 rounded-2xl p-6 mb-6 border-l-4 border-orange-400 shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-xl mr-3">☀</div>
+                        <h3 class="text-xl font-bold text-gray-800">1. Evaporasi (Penguapan)</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Proses di mana air yang ada di laut, rawa, sungai dan lainnya berubah menjadi uap air karena adanya <strong>panas matahari</strong>. Dalam hal ini, air diubah dari wujud cair menjadi wujud gas (uap air) yang kemudian naik ke atmosfer.
+                    </p>
+                </div>
+
+                <!-- Kartu Materi 2: Transpirasi -->
+                <div class="bg-green-50 rounded-2xl p-6 mb-6 border-l-4 border-green-500 shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-xl mr-3">🌲</div>
+                        <h3 class="text-xl font-bold text-gray-800">2. Transpirasi</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Mirip dengan evaporasi, namun penguapan ini terjadi pada jaringan makhluk hidup, terutama <strong>tumbuhan</strong>. Air diserap oleh akar tanaman dan kemudian dilepaskan kembali ke udara melalui daun sebagai uap air.
+                    </p>
+                </div>
+
+                <!-- Kartu Materi 3: Kondensasi -->
+                <div class="bg-blue-50 rounded-2xl p-6 mb-6 border-l-4 border-blue-400 shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl mr-3">☁</div>
+                        <h3 class="text-xl font-bold text-gray-800">3. Kondensasi (Pengembunan)</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Perubahan wujud uap air menjadi titik-titik air di atmosfer. Hal ini terjadi ketika uap air naik ke ketinggian tertentu di mana suhunya lebih dingin, sehingga membentuk <strong>awan</strong>.
+                    </p>
+                </div>
+
+                <!-- Kartu Materi 4: Presipitasi -->
+                <div class="bg-indigo-50 rounded-2xl p-6 mb-6 border-l-4 border-indigo-500 shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-xl mr-3">🌧</div>
+                        <h3 class="text-xl font-bold text-gray-800">4. Presipitasi (Hujan)</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Ketika awan sudah terlalu jenuh dengan titik-titik air, air tersebut akan jatuh kembali ke permukaan bumi. Bentuk presipitasi bisa berupa <strong>hujan air</strong>, salju, atau hujan es, tergantung pada suhu udara.
+                    </p>
+                </div>
+
+                <!-- Kartu Materi 5: Infiltrasi -->
+                <div class="bg-amber-50 rounded-2xl p-6 mb-12 border-l-4 border-amber-600 shadow-sm">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-xl mr-3">💧</div>
+                        <h3 class="text-xl font-bold text-gray-800">5. Infiltrasi (Penyerapan)</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Air hujan yang jatuh ke daratan akan meresap ke dalam tanah melalui pori-pori tanah dan batuan. Air ini menjadi <strong>air tanah</strong> yang nantinya bisa mengalir kembali ke laut atau diserap oleh tanaman.
+                    </p>
+                </div>
+                
+                <!-- CTA for Quiz in Materi (Mengarah ke layer kuis terpisah) -->
+                <div class="mt-12 p-8 bg-indigo-50 rounded-2xl border-2 border-indigo-200 text-center shadow-lg">
+                    <h3 class="text-2xl font-bold text-indigo-700 mb-4 title-font">Saatnya Menguji Ilmu!</h3>
+                    <p class="text-indigo-600 mb-6">Setelah membaca materi, segera cek pemahaman Anda dengan 10 soal kuis yang telah kami sediakan.</p>
+                    <button onclick="switchTab('quiz')" class="w-full md:w-auto bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:bg-indigo-700 transition transform hover:scale-105">
+                        <i class="fa-solid fa-graduation-cap mr-2"></i> Mulai Kuis Sekarang
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- LAYER 3: KUIS INTERAKTIF (LAYAR TERPISAH DENGAN SATU LAYER ALUR) -->
+        <section id="view-quiz" class="absolute inset-0 w-full h-full bg-slate-50 hidden overflow-y-auto pb-20 flex flex-col items-center justify-center">
+            <!-- Tombol Kembali ke Beranda -->
+            <button onclick="switchTab('home')" class="absolute top-4 left-4 z-50 p-3 bg-white/90 rounded-full shadow-lg text-blue-600 hover:bg-white transition">
+                <i class="fa-solid fa-home"></i> <span class="hidden sm:inline font-semibold ml-1">Beranda</span>
+            </button>
+            
+            <div id="quiz-container" class="w-full max-w-lg p-6 mt-16 md:mt-0">
+                
+                <!-- Tampilan Kuis Utama (Mulai dengan pertanyaan pertama) -->
+                <!-- Ini adalah Layer Tunggal yang menggantikan Start Card dan Question Card secara default -->
+                <div id="question-card" class="bg-white rounded-2xl shadow-xl p-6 md:p-8 transform transition-all duration-300">
+                    <div class="flex justify-between items-center mb-4 text-sm font-semibold text-slate-400">
+                        <span id="q-progress">Pertanyaan 1/10</span>
+                        <span id="q-score" class="text-blue-600">Skor: 0</span>
+                    </div>
+                    <h3 id="q-text" class="text-xl font-bold text-slate-800 mb-6 leading-snug">Klik Mulai Kuis untuk memulai...</h3>
+                    <div id="q-options" class="space-y-3">
+                        <!-- Tombol Mulai Kuis yang terintegrasi di sini -->
+                        <button onclick="startQuiz()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
+                            <i class="fa-solid fa-play mr-2"></i> Mulai Kuis
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Layer RESULT/REVIEW (Hanya muncul saat kuis selesai) -->
+                <div id="result-card" class="hidden bg-white rounded-2xl shadow-xl p-8 text-center animate-pop absolute inset-0 w-full h-full flex flex-col justify-center items-center">
+                    <div id="result-emoji" class="text-6xl mb-4">🏆</div>
+                    <h3 id="result-title" class="text-2xl font-bold text-slate-800 mb-2">Selamat!</h3>
+                    <p class="text-slate-600 mb-6">Kamu telah menyelesaikan kuis.</p>
+                    
+                    <div class="bg-blue-50 rounded-xl p-4 mb-6">
+                        <span class="block text-sm text-blue-400 font-bold uppercase tracking-wider">Skor Akhir</span>
+                        <span id="final-score" class="text-4xl font-extrabold text-blue-600">0/0</span>
+                    </div>
+
+                    <button onclick="switchTab('home')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
+                        Kembali ke Beranda
+                    </button>
+                    <button onclick="restartQuiz()" class="w-full mt-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
+                        Ulangi Kuis
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- LOGIKA NAVIGASI TAB ---
+        let activeTab = 'home'; // Mulai dari Beranda
+
+        function switchTab(tabName) {
+            activeTab = tabName;
+
+            // Hide All Sections
+            document.getElementById('view-simulation').classList.add('hidden');
+            document.getElementById('view-materi').classList.add('hidden');
+            document.getElementById('view-quiz').classList.add('hidden');
+            document.getElementById('view-home').classList.add('hidden');
+
+            // Show Active Section
+            document.getElementById(view-${tabName}).classList.remove('hidden');
+            
+            // Khusus Simulasi: Pastikan canvas di-resize dan kontrol zoom terlihat/tersembunyi
+            const zoomControls = document.querySelector('#view-simulation .absolute.bottom-6.right-4');
+            if(zoomControls) {
+                if (tabName === 'simulation') {
+                    zoomControls.style.display = 'flex';
+                    resizeCanvas();
+                } else {
+                    zoomControls.style.display = 'none';
+                }
+            }
+            
+            // Khusus Kuis: Reset ke tampilan awal kuis (tombol mulai di dalam question-card)
+            if(tabName === 'quiz') {
+                resetQuizToStartView();
+            }
+        }
+
+        // --- SIMULASI DAUR AIR (Javascript Canvas) ---
+        const canvas = document.getElementById('waterCycleCanvas');
+        const ctx = canvas.getContext('2d');
+        const WORLD_WIDTH = 1200;
+        const WORLD_HEIGHT = 800;
+        let width, height, scaleFactor, viewScale = 1.0;
+        const SEA_LEVEL = WORLD_HEIGHT * 0.75;
+        const GROUND_HEIGHT = WORLD_HEIGHT * 0.85;
+        let lastTime = 0, gameTime = 0;
+        const CYCLE_DURATION = 120; // 120 detik per siklus siang-malam
+        let vapors = [], clouds = [], rains = [], trees = [];
+
+        // Fungsi untuk menyesuaikan ukuran canvas dengan viewport
+        function resizeCanvas() {
+            // Menggunakan tinggi penuh viewport
+            width = window.innerWidth;
+            height = window.innerHeight; 
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            // Menentukan faktor skala untuk menyesuaikan dunia game (WORLD_WIDTH/HEIGHT) ke viewport
+            scaleFactor = Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        // Panggil awal
+        setTimeout(resizeCanvas, 100);
+
+        // Kelas untuk uap air (Evaporasi/Transpirasi)
+        class Vapor {
+            constructor(x, y, forced = false) {
+                this.x = x; this.y = y;
+                this.radius = Math.random() * 2 + 1;
+                this.speedY = Math.random() * 0.5 + 0.5;
+                if (forced) this.speedY *= 3; // Lebih cepat jika diklik (paksa)
+                this.wobbleOffset = Math.random() * Math.PI * 2;
+                this.life = 1.0; this.opacity = Math.random() * 0.4 + 0.3;
+            }
+            update(dt) {
+                this.y -= this.speedY * dt * 60;
+                this.x += Math.sin(gameTime * 2 + this.wobbleOffset) * 0.5;
+                this.life -= 0.002 * dt * 60;
+                if (this.y < SEA_LEVEL * 0.4) this.opacity -= 0.01;
+            }
+            draw(ctx) {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = rgba(255, 255, 255, ${Math.max(0, this.opacity * this.life)}); ctx.fill();
+            }
+        }
+
+        // Kelas untuk Awan (Kondensasi/Presipitasi)
+        class Cloud {
+            constructor(x, y) { 
+                this.x = x; this.y = y; 
+                this.waterContent = 0; 
+                this.capacity = 100; 
+                this.isRaining = false;
+                
