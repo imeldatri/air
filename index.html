@@ -146,7 +146,7 @@
                 <!-- Kartu Materi 1: Evaporasi -->
                 <div class="bg-orange-50 rounded-2xl p-6 mb-6 border-l-4 border-orange-400 shadow-sm">
                     <div class="flex items-center mb-3">
-                        <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-xl mr-3">☀</div>
+                        <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-xl mr-3">☀️</div>
                         <h3 class="text-xl font-bold text-gray-800">1. Evaporasi (Penguapan)</h3>
                     </div>
                     <p class="text-gray-700 leading-relaxed">
@@ -168,7 +168,7 @@
                 <!-- Kartu Materi 3: Kondensasi -->
                 <div class="bg-blue-50 rounded-2xl p-6 mb-6 border-l-4 border-blue-400 shadow-sm">
                     <div class="flex items-center mb-3">
-                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl mr-3">☁</div>
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl mr-3">☁️</div>
                         <h3 class="text-xl font-bold text-gray-800">3. Kondensasi (Pengembunan)</h3>
                     </div>
                     <p class="text-gray-700 leading-relaxed">
@@ -179,7 +179,7 @@
                 <!-- Kartu Materi 4: Presipitasi -->
                 <div class="bg-indigo-50 rounded-2xl p-6 mb-6 border-l-4 border-indigo-500 shadow-sm">
                     <div class="flex items-center mb-3">
-                        <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-xl mr-3">🌧</div>
+                        <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-xl mr-3">🌧️</div>
                         <h3 class="text-xl font-bold text-gray-800">4. Presipitasi (Hujan)</h3>
                     </div>
                     <p class="text-gray-700 leading-relaxed">
@@ -271,7 +271,7 @@
             document.getElementById('view-home').classList.add('hidden');
 
             // Show Active Section
-            document.getElementById(view-${tabName}).classList.remove('hidden');
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
             
             // Khusus Simulasi: Pastikan canvas di-resize dan kontrol zoom terlihat/tersembunyi
             const zoomControls = document.querySelector('#view-simulation .absolute.bottom-6.right-4');
@@ -336,7 +336,7 @@
             }
             draw(ctx) {
                 ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = rgba(255, 255, 255, ${Math.max(0, this.opacity * this.life)}); ctx.fill();
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, this.opacity * this.life)})`; ctx.fill();
             }
         }
 
@@ -346,5 +346,416 @@
                 this.x = x; this.y = y; 
                 this.waterContent = 0; 
                 this.capacity = 100; 
-                this.isRaining = false;
+                this.isRaining = false; 
+                this.speed = Math.random() * 0.5 + 0.2;
+                // Partikel untuk bentuk awan
+                this.particles = Array.from({length: 5}, () => ({x: (Math.random()-0.5)*80, y: (Math.random()-0.5)*30, r: Math.random()*25+25}));
+            }
+            update(dt) {
+                this.x += this.speed * dt * 60;
+                // Pindahkan awan ke kiri jika sudah melewati batas kanan
+                if (this.x > WORLD_WIDTH + 100) { 
+                    this.x = -150; 
+                    this.waterContent = 0; 
+                    this.isRaining = false; 
+                }
                 
+                // Mulai hujan jika kapasitas penuh
+                if (this.waterContent >= this.capacity) this.isRaining = true;
+
+                if (this.isRaining) {
+                    this.waterContent -= 0.8 * dt * 60;
+                    // Tetesan hujan
+                    if (Math.random() > 0.5) rains.push(new Rain(this.x + (Math.random()-0.5)*100, this.y + 20));
+                    if (this.waterContent <= 0) { 
+                        this.isRaining = false; 
+                        this.waterContent = 0; 
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.x, this.y);
+                // Warna awan menjadi lebih gelap/abu-abu saat air penuh
+                const grayVal = Math.floor(255 - ((this.waterContent/this.capacity) * 100));
+                ctx.fillStyle = `rgb(${grayVal}, ${grayVal}, ${grayVal})`;
+                ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 15; ctx.shadowOffsetY = 10;
+                
+                // Gambar bentuk awan dari partikel
+                ctx.beginPath(); 
+                this.particles.forEach(p => { 
+                    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); 
+                    ctx.closePath(); 
+                }); 
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Kelas untuk Tetesan Hujan (Presipitasi)
+        class Rain {
+            constructor(x, y) { 
+                this.x = x; this.y = y; 
+                this.vy = 8; // Kecepatan awal
+                this.len = Math.random() * 10 + 10; 
+            }
+            update(dt) { 
+                this.vy += 0.5 * dt * 60; // Percepatan
+                this.y += this.vy * dt * 60; 
+            }
+            draw(ctx) { 
+                ctx.strokeStyle = "rgba(100, 180, 255, 0.8)"; 
+                ctx.lineWidth = 2; 
+                ctx.beginPath(); 
+                ctx.moveTo(this.x, this.y); 
+                ctx.lineTo(this.x, this.y + this.len); 
+                ctx.stroke(); 
+            }
+        }
+
+        // Inisialisasi objek di awal simulasi
+        function initSim() {
+            for(let i=0; i<4; i++) clouds.push(new Cloud(Math.random() * WORLD_WIDTH, 100 + Math.random() * 100));
+            // Hutan di sisi daratan
+            for(let i=0; i<8; i++) trees.push({x: Math.random() * (WORLD_WIDTH * 0.4), y: GROUND_HEIGHT, type: Math.random() > 0.5 ? '🌲' : '🌳'});
+        }
+
+        // Logika update per frame
+        function updateSim(dt) {
+            gameTime += dt;
+            const cycleProgress = (gameTime % CYCLE_DURATION) / CYCLE_DURATION;
+            const isDay = cycleProgress > 0.25 && cycleProgress < 0.75;
+            
+            // Update Label Waktu (Siang/Malam/Fajar/Senja)
+            let timeLabel;
+            if (cycleProgress < 0.2) timeLabel = "Malam 🌙";
+            else if (cycleProgress < 0.3) timeLabel = "Terbit 🌅";
+            else if (cycleProgress < 0.7) timeLabel = "Siang ☀️";
+            else if (cycleProgress < 0.8) timeLabel = "Terbenam 🌇";
+            else timeLabel = "Malam 🌙";
+            document.getElementById('day-night-status').innerText = `Waktu: ${timeLabel}`;
+
+            // Evaporasi Otomatis saat Siang Hari
+            if (isDay && Math.random() < 0.1) {
+                // Evaporasi dari laut (sisi kanan)
+                const vaporX = (WORLD_WIDTH * 0.4) + Math.random() * (WORLD_WIDTH * 0.6);
+                vapors.push(new Vapor(vaporX, SEA_LEVEL + 10 + Math.random()*50));
+            }
+            // Transpirasi (dari pohon)
+            if (isDay && Math.random() < 0.05) {
+                const randomTree = trees[Math.floor(Math.random() * trees.length)];
+                vapors.push(new Vapor(randomTree.x, randomTree.y - 40));
+            }
+
+            // Update uap air dan Kondensasi
+            vapors = vapors.filter(v => {
+                v.update(dt);
+                // Cek jika uap mencapai ketinggian awan (Kondensasi)
+                if (v.y < 250) {
+                    for (let c of clouds) {
+                        if (Math.abs(c.x - v.x) < 80 && c.waterContent < c.capacity) {
+                            c.waterContent += 2; // Menambah air ke awan
+                            return false; // Hapus uap karena sudah berkondensasi
+                        }
+                    }
+                }
+                return v.life > 0 && v.y > -50;
+            });
+            
+            // Update Awan dan Hujan
+            clouds.forEach(c => c.update(dt));
+            
+            // Update hujan dan Infiltrasi
+            rains = rains.filter(r => { 
+                r.update(dt); 
+                // Hujan yang mencapai tanah atau laut akan dihilangkan (Infiltrasi/Runoff)
+                return r.y < WORLD_HEIGHT; 
+            });
+        }
+
+        // Helper function untuk menggambar label di dunia canvas
+        function drawLabel(ctx, text, x, y, color = 'white') {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.shadowColor = "rgba(0,0,0,0.5)"; 
+            ctx.shadowBlur = 5; 
+            ctx.font = "bold 20px Inter";
+            ctx.textAlign = "center";
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+
+        // Fungsi gambar per frame
+        function drawSim() {
+            // Hanya gambar jika tab simulasi aktif
+            if(activeTab !== 'simulation') return;
+
+            const currentScale = scaleFactor * viewScale;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            // Pindah ke pusat canvas, skala, lalu pindah kembali ke asal dunia game
+            ctx.translate(width/2, height/2);
+            ctx.scale(currentScale, currentScale);
+            ctx.translate(-WORLD_WIDTH/2, -WORLD_HEIGHT/2);
+
+            // Background Langit (Siklus Siang-Malam)
+            const cycleProgress = (gameTime % CYCLE_DURATION) / CYCLE_DURATION;
+            let topColor, bottomColor;
+            if (cycleProgress < 0.2) { topColor = "#020024"; bottomColor = "#090979"; } // Malam
+            else if (cycleProgress < 0.3) { topColor = "#5f2c82"; bottomColor = "#fdc830"; } // Fajar
+            else if (cycleProgress < 0.7) { topColor = "#2980b9"; bottomColor = "#87CEEB"; } // Siang
+            else if (cycleProgress < 0.8) { topColor = "#2c3e50"; bottomColor = "#fd746c"; } // Senja
+            else { topColor = "#020024"; bottomColor = "#090979"; } // Kembali Malam
+            
+            const grad = ctx.createLinearGradient(0, 0, 0, WORLD_HEIGHT);
+            grad.addColorStop(0, topColor); grad.addColorStop(1, bottomColor);
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+            // Objek Langit (Matahari/Bulan)
+            const cx = WORLD_WIDTH/2 + Math.cos((cycleProgress * Math.PI * 2) - Math.PI/2) * (WORLD_WIDTH*0.8);
+            const cy = WORLD_HEIGHT*1.2 + Math.sin((cycleProgress * Math.PI * 2) - Math.PI/2) * (WORLD_WIDTH*0.8);
+            ctx.font = "80px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(cycleProgress > 0.2 && cycleProgress < 0.8 ? "☀️" : "🌙", cx, cy);
+
+            // Daratan
+            ctx.fillStyle = "#4a7c59"; // Warna hijau tanah
+            ctx.beginPath(); 
+            ctx.moveTo(0, WORLD_HEIGHT); 
+            ctx.lineTo(0, WORLD_HEIGHT*0.5); // Mulai dari sisi kiri
+            // Bentuk bukit/gunung
+            ctx.bezierCurveTo(WORLD_WIDTH*0.1, WORLD_HEIGHT*0.3, WORLD_WIDTH*0.3, WORLD_HEIGHT*0.9, WORLD_WIDTH*0.45, SEA_LEVEL+20);
+            ctx.lineTo(WORLD_WIDTH*0.45, WORLD_HEIGHT); 
+            ctx.fill();
+            
+            // VISUALISASI INFILTRASI/AIR TANAH
+            // Air Tanah (Groundwater / Infiltrasi)
+            ctx.fillStyle = "#87ceebaa"; // Light blue semi-transparent for groundwater
+            ctx.beginPath();
+            ctx.moveTo(0, GROUND_HEIGHT);
+            ctx.lineTo(WORLD_WIDTH * 0.45, SEA_LEVEL + 20); // Mengalir ke laut
+            ctx.lineTo(WORLD_WIDTH * 0.45, WORLD_HEIGHT);
+            ctx.lineTo(0, WORLD_HEIGHT);
+            ctx.fill();
+
+            // Laut (di sisi kanan)
+            ctx.fillStyle = "rgba(30, 144, 255, 0.8)"; 
+            ctx.fillRect(WORLD_WIDTH*0.4, SEA_LEVEL, WORLD_WIDTH*0.6, WORLD_HEIGHT-SEA_LEVEL);
+
+            // Pohon (Transpirasi)
+            ctx.font = "40px Arial"; 
+            trees.forEach(t => ctx.fillText(t.type, t.x, t.y-10));
+
+            // Objek Daur Air
+            vapors.forEach(v => v.draw(ctx)); 
+            clouds.forEach(c => c.draw(ctx)); 
+            rains.forEach(r => r.draw(ctx));
+
+            // LABEL TAHAP SIKLUS
+            drawLabel(ctx, "KONDENSASI / PEMBENTUKAN AWAN", WORLD_WIDTH * 0.5, 150, 'white');
+            drawLabel(ctx, "PRESIPITASI / HUJAN", WORLD_WIDTH * 0.3, 350, '#90ee90');
+            drawLabel(ctx, "TRANSPIRASI (Penguapan dari Tumbuhan)", WORLD_WIDTH * 0.15, GROUND_HEIGHT - 60, 'lightgreen');
+            drawLabel(ctx, "EVAPORASI / PENGUAPAN (dari Air)", WORLD_WIDTH * 0.7, SEA_LEVEL + 50, 'yellow');
+            drawLabel(ctx, "RUNOFF / ALIRAN PERMUKAAN (Ke Laut)", WORLD_WIDTH * 0.3, SEA_LEVEL - 50, '#00bfff');
+            drawLabel(ctx, "INFILTRASI / AIR TANAH", WORLD_WIDTH * 0.1, GROUND_HEIGHT + 30, '#87CEEB');
+
+            ctx.restore();
+        }
+
+        // Loop animasi utama
+        function animateSim(timestamp) {
+            const dt = (timestamp - lastTime) / 1000 || 0;
+            lastTime = timestamp;
+            updateSim(dt);
+            drawSim();
+            requestAnimationFrame(animateSim);
+        }
+
+        // Input Handling Simulasi (Klik/Sentuh)
+        function handleSimInput(e) {
+            if(activeTab !== 'simulation') return;
+            e.preventDefault(); // Mencegah scrolling pada touch
+
+            const rect = canvas.getBoundingClientRect();
+            // Handle baik mouse maupun touch
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            
+            const currentScale = scaleFactor * viewScale;
+            // Konversi koordinat layar ke koordinat dunia game.
+            const worldX = (x - width/2) / currentScale + WORLD_WIDTH/2;
+            const worldY = (y - height/2) / currentScale + WORLD_HEIGHT/2;
+
+            // 1. Klik di Laut/Air (Evaporasi Paksa)
+            if (worldX > WORLD_WIDTH * 0.4 && worldY > SEA_LEVEL) {
+                for(let i=0; i<5; i++) vapors.push(new Vapor(worldX + (Math.random()-0.5)*50, worldY, true));
+                showClickEffect(clientX, clientY, "Evaporasi Cepat!");
+            }
+            // 2. Klik di Awan (Presipitasi Paksa)
+            clouds.forEach(c => {
+                // Jarak ke pusat awan
+                if (Math.sqrt((worldX - c.x)**2 + (worldY - c.y)**2) < 80) {
+                    c.waterContent = c.capacity; c.isRaining = true;
+                    showClickEffect(clientX, clientY, "Hujan Paksa!");
+                }
+            });
+        }
+        canvas.addEventListener('mousedown', handleSimInput);
+        canvas.addEventListener('touchstart', handleSimInput, {passive: false});
+        
+        // Efek visual klik
+        function showClickEffect(x, y, text) {
+            const el = document.createElement('div');
+            el.className = 'absolute text-blue-600 font-bold text-lg pointer-events-none animate-bounce z-50';
+            el.style.left = x + 'px'; 
+            el.style.top = y + 'px'; 
+            el.innerText = text;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+        
+        // Kontrol Zoom
+        document.getElementById('zoomInBtn').onclick = () => viewScale = Math.min(viewScale + 0.2, 3);
+        document.getElementById('zoomOutBtn').onclick = () => viewScale = Math.max(viewScale - 0.2, 0.5);
+
+        // --- LOGIKA KUIS (10 Soal) ---
+        const quizData = [
+            // Soal 1-5 (Dasar)
+            { q: "Apa nama proses air laut berubah menjadi uap oleh panas matahari?", a: ["Kondensasi", "Evaporasi", "Presipitasi", "Transpirasi"], correct: 1 },
+            { q: "Apa yang terjadi saat uap air naik dan mendingin di atmosfer?", a: ["Membentuk Awan (Kondensasi)", "Mencair jadi es", "Langsung jatuh ke tanah", "Menguap kembali"], correct: 0 },
+            { q: "Air yang jatuh dari awan ke bumi dalam bentuk hujan atau salju disebut...", a: ["Transpirasi", "Presipitasi", "Iritasi", "Sublimasi"], correct: 1 },
+            { q: "Air hujan yang meresap masuk ke dalam tanah disebut...", a: ["Run off", "Evaporasi", "Infiltrasi", "Kondensasi"], correct: 2 },
+            { q: "Apa sumber energi utama yang menggerakkan siklus air?", a: ["Angin", "Bulan", "Matahari", "Gravitasi"], correct: 2 },
+            // Soal 6-10 (Tambahan)
+            { q: "Proses penguapan air dari permukaan daun tumbuhan disebut?", a: ["Evaporasi", "Kondensasi", "Transpirasi", "Presipitasi"], correct: 2 },
+            { q: "Di manakah air paling banyak mengalami evaporasi?", a: ["Hutan", "Gurun", "Pegunungan", "Laut"], correct: 3 },
+            { q: "Ketika uap air berubah menjadi titik-titik air kecil yang membentuk awan, proses ini dinamakan...", a: ["Infiltrasi", "Sublimasi", "Kondensasi", "Perkolasi"], correct: 2 },
+            { q: "Pergerakan air di permukaan bumi setelah hujan turun yang menuju ke sungai atau laut disebut...", a: ["Infiltrasi", "Runoff", "Aerosol", "Ablasi"], correct: 1 },
+            { q: "Air tanah yang mengalir kembali ke laut secara bawah tanah disebut...", a: ["Drainase", "Sublimasi", "Runoff Permukaan", "Perkolasi"], correct: 3 }
+        ];
+
+        let currentQ = 0;
+        let score = 0;
+        
+        // Fungsi untuk mengelola tampilan 2 Status Kuis (Pertanyaan atau Hasil)
+        function showQuizState(stateName) {
+            const questionCard = document.getElementById('question-card');
+            const resultCard = document.getElementById('result-card');
+
+            if (stateName === 'question') {
+                questionCard.classList.remove('hidden');
+                resultCard.classList.add('hidden');
+            } else if (stateName === 'result') {
+                questionCard.classList.add('hidden');
+                resultCard.classList.remove('hidden');
+            }
+        }
+
+        // Dipanggil saat tombol "Mulai Kuis" atau "Ulangi Kuis" (dari hasil) ditekan
+        window.startQuiz = function() {
+            currentQ = 0;
+            score = 0;
+            renderQuestion();
+        }
+        
+        // Fungsi untuk reset ke tampilan awal (Tombol Mulai)
+        function resetQuizToStartView() {
+            showQuizState('question');
+            document.getElementById('result-card').classList.add('hidden'); // Pastikan hasil tersembunyi
+
+            // Reset tampilan question-card ke tombol Mulai
+            document.getElementById('q-text').innerText = "Kamu siap menguji pengetahuanmu? Tekan tombol Mulai Kuis di bawah.";
+            document.getElementById('q-progress').innerText = `Total Soal: 10`;
+            document.getElementById('q-score').innerText = `Skor: 0`;
+
+            const optsContainer = document.getElementById('q-options');
+            optsContainer.innerHTML = '';
+            
+            // Re-inject tombol Mulai Kuis
+            const btn = document.createElement('button');
+            btn.className = "w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105";
+            btn.innerText = "Mulai Kuis";
+            btn.onclick = startQuiz;
+            optsContainer.appendChild(btn);
+
+            document.getElementById('view-quiz').scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+
+        // Menampilkan pertanyaan kuis saat ini (Status Pertanyaan)
+        function renderQuestion() {
+            showQuizState('question');
+            
+            const data = quizData[currentQ];
+            document.getElementById('q-text').innerText = data.q;
+            document.getElementById('q-progress').innerText = `Pertanyaan ${currentQ + 1}/${quizData.length}`;
+            document.getElementById('q-score').innerText = `Skor: ${score}`;
+            
+            const optsContainer = document.getElementById('q-options');
+            optsContainer.innerHTML = '';
+            
+            data.a.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 rounded-xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500";
+                btn.innerText = opt;
+                btn.onclick = () => handleAnswer(idx);
+                optsContainer.appendChild(btn);
+            });
+            
+            document.getElementById('view-quiz').scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Menangani jawaban user
+        function handleAnswer(idx) {
+            document.querySelectorAll('#q-options button').forEach(btn => btn.disabled = true);
+
+            if (idx === quizData[currentQ].correct) {
+                score++;
+                document.querySelectorAll('#q-options button')[idx].classList.add('bg-green-100', 'border-green-500');
+            } else {
+                document.querySelectorAll('#q-options button')[idx].classList.add('bg-red-100', 'border-red-500');
+                document.querySelectorAll('#q-options button')[quizData[currentQ].correct].classList.add('bg-green-200', 'border-green-600');
+            }
+
+            // Lanjut ke pertanyaan berikutnya setelah jeda
+            setTimeout(() => {
+                currentQ++;
+                if (currentQ < quizData.length) {
+                    renderQuestion();
+                } else {
+                    showResult();
+                }
+            }, 800);
+        }
+
+        // Menampilkan hasil akhir kuis (Status Hasil)
+        function showResult() {
+            showQuizState('result');
+
+            document.getElementById('final-score').innerText = `${score} / ${quizData.length}`;
+            
+            let title = "Bagus!";
+            let emoji = "👍";
+            if(score === quizData.length) { title = "Sempurna!"; emoji = "🌟"; }
+            else if(score <= 5) { title = "Ayo Coba Lagi!"; emoji = "📚"; }
+            
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-emoji').innerText = emoji;
+        }
+
+        // Fungsi global untuk memulai ulang kuis (Kembali ke Layer 1)
+        window.restartQuiz = function() {
+            resetQuizToStartView();
+        }
+
+        // --- START APP ---
+        window.onload = function() {
+            initSim();
+            animateSim(0);
+            // Default tab is home
+            switchTab('home');
+        }
+    </script>
+</body>
+</html>
